@@ -1,24 +1,38 @@
 ---
-.cache_bundler: &cache_bundler
+variables:
+  PUPPET_VERSION:    'UNDEFINED' # <- Matrixed jobs MUST override this (or fail)
+  BUNDLER_VERSION:   '1.16.1'
+
+  # Force dependencies into a path the gitlab-runner user can write to.
+  # (This avoids some failures on Runners with misconfigured ruby environments.)
+  GEM_HOME:          .vendor/gem_install
+  BUNDLE_CACHE_PATH: .vendor/bundle
+  BUNDLE_PATH:       .vendor/bundle
+  BUNDLE_BIN:        .vendor/gem_install/bin
+  BUNDLE_NO_PRUNE:   'true'
+
+# bundler dependencies and caching
+#
+# - Cache bundler gems between pipelines foreach Ruby version
+# - Try to use cached and local resources before downloading dependencies
+# --------------------------------------
+.setup_bundler_env: &setup_bundler_env
   cache:
     untracked: true
-    # A broad attempt at caching between runs (ala Travis CI)
-    key: "${CI_PROJECT_NAMESPACE}__bundler"
+    key: "${CI_PROJECT_NAMESPACE}_ruby-${MATRIX_RUBY_VERSION}_bundler"
     paths:
       - '.vendor'
-      - 'vendor'
-
-.setup_bundler_env: &setup_bundler_env
   before_script:
-    - 'echo Files in cache: $(find .vendor | wc -l) || :'
-    - 'export GEM_HOME=.vendor/gem_install'
-    - 'export BUNDLE_CACHE_PATH=.vendor/bundler'
-    - 'declare GEM_BUNDLER_VER=(-v ''~> ${BUNDLER_VERSION:-1.16.0}'')'
-    - declare GEM_INSTALL=(gem install --no-document)
-    - declare BUNDLER_INSTALL=(bundle install --no-binstubs --jobs $(nproc) --path=.vendor "${FLAGS[@]}")
-    - gem list -ie "${GEM_BUNDLE_VER[@]}" --silent bundler || "${GEM_INSTALL[@]}" --local "${GEM_BUNDLE_VER[@]}" bundler || "${GEM_INSTALL[@]}" "${GEM_BUNDLE_VER[@]}" bundler
+    - 'declare GEM_BUNDLER_VER=(-v "~> ${BUNDLER_VERSION:-1.16.0}")'
+    - 'declare GEM_INSTALL_CMD=(gem install --no-document)'
+    - 'declare BUNDLER_INSTALL_CMD=(bundle install --no-binstubs --jobs $(nproc) "${FLAGS[@]}")'
+    - 'mkdir -p ${GEM_HOME} ${BUNDLER_BIN}'
+    - 'gem list -ie "${GEM_BUNDLER_VER[@]}" --silent bundler || "${GEM_INSTALL_CMD[@]}" --local "${GEM_BUNDLER_VER[@]}" bundler || "${GEM_INSTALL_CMD[@]}" "${GEM_BUNDLER_VER[@]}" bundler'
     - 'rm -rf pkg/ || :'
-    - bundle check || rm -f Gemfile.lock && ("${BUNDLER_INSTALL[@]}" --local || "${BUNDLER_INSTALL[@]}")
+    - 'bundle check || rm -f Gemfile.lock && ("${BUNDLER_INSTALL_CMD[@]}" --local || "${BUNDLER_INSTALL_CMD[@]}" || bundle pristine ||  "${BUNDLER_INSTALL_CMD[@]}") || echo "PIPELNE: Bundler could not find everything"'
+    - "which ruby"
+    - "ruby -e 'puts \"ruby version: #{RUBY_VERSION}\"'"
+    - "bundle exec gem env"
 
 stages:
   - integration
@@ -28,213 +42,114 @@ stages:
 .only_with_SIMP_RELEASE_TESTS: &only_with_SIMP_RELEASE_TESTS
   only:
     variables:
-      - $SIMP_RELEASE_TESTS
+      - $SIMP_RELEASE_TESTS == 'yes'
 
 # To avoid running a prohibitive number of tests every commit,
 # don't set this env var in your gitlab instance
 .only_with_SIMP_FULL_MATRIX: &only_with_SIMP_FULL_MATRIX
   only:
     variables:
-      - $SIMP_FULL_MATRIX
+      - $SIMP_FULL_MATRIX == 'yes'
 
-
-default_el6:
+.integration_test: &integration_test
   stage: integration
   tags:
     - beaker
-  <<: *cache_bundler
   <<: *setup_bundler_env
-  variables:
-    PUPPET_VERSION: '4.10.7'
-  script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[default,el6_server]
-  retry: 1
-
-default_el7:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
-  variables:
-    PUPPET_VERSION: '4.10.7'
-  script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[default,el7_server]
-  retry: 1
 
 
-ipa_el7:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
-  <<: *only_with_SIMP_FULL_MATRIX
-  variables:
-    PUPPET_VERSION: '4.10.7'
-  script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[ipa,el7_server]
-  retry: 1
-
-default_el6-puppet5:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+.integration_test_puppet_5: &integration_test_puppet_5
+  <<: *integration_test
   variables:
     PUPPET_VERSION: '~> 5.3'
+    MATRIX_RUBY_VERSION: '2.4'
     BEAKER_PUPPET_COLLECTION: 'puppet5'
+
+# --------------------------------------
+
+default_el6-puppet5:
+  <<: *integration_test_puppet_5
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[default,el6_server]
+    - 'bundle exec rake spec_clean'
+    - 'bundle exec rake beaker:suites[default,el6_server]'
   retry: 1
 
 default_el7-puppet5:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
-  variables:
-    PUPPET_VERSION: '~> 5.3'
-    BEAKER_PUPPET_COLLECTION: 'puppet5'
+  <<: *integration_test_puppet_5
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[default,el7_server]
+    - 'bundle exec rake spec_clean'
+    - 'bundle exec rake beaker:suites[default,el7_server]'
   retry: 1
 
 
 ipa_el7-puppet5:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_FULL_MATRIX
-  variables:
-    PUPPET_VERSION: '~> 5.3'
-    BEAKER_PUPPET_COLLECTION: 'puppet5'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[ipa,el7_server]
+    - 'bundle exec rake spec_clean'
+    - 'bundle exec rake beaker:suites[ipa,el7_server]'
   retry: 1
 
-default_oel6:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+default_oel6-puppet5:
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_FULL_MATRIX
-  variables:
-    PUPPET_VERSION: '4.10.7'
-    SIMP_BEAKER_OS: 'oracle'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[default,el6_server]
+    - 'bundle exec rake spec_clean'
+    - 'SIMP_BEAKER_OS=oracle bundle exec rake beaker:suites[default,el6_server]'
   retry: 1
 
-default_oel7:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+default_oel7-puppet5:
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_FULL_MATRIX
-  variables:
-    PUPPET_VERSION: '4.10.7'
-    SIMP_BEAKER_OS: 'oracle'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[default,el7_server]
+    - 'bundle exec rake spec_clean'
+    - 'SIMP_BEAKER_OS=oracle bundle exec rake beaker:suites[default,el7_server]'
   retry: 1
 
-
-ipa_oel7:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+ipa_oel7-puppet5:
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_FULL_MATRIX
-  variables:
-    PUPPET_VERSION: '4.10.7'
-    SIMP_BEAKER_OS: 'oracle'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[ipa,el7_server]
+    - 'bundle exec rake spec_clean'
+    - 'SIMP_BEAKER_OS=oracle bundle exec rake beaker:suites[ipa,el7_server]'
   retry: 1
 
 # # IPA server has issues on el6
-# ipa_el6:
-#   stage: integration
-#   tags:
-#     - beaker
-#   <<: *cache_bundler
-#   <<: *setup_bundler_env
-#   variables:
-#     PUPPET_VERSION: '4.10.7'
+# <<: *integration_test_puppet_5
+# ipa_el6-puppet5:
 #   script:
 #     - bundle exec rake beaker:suites[ipa,el6_server]
 #   retry: 1
 
 
-rpm_el6:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+rpm_el6-puppet5:
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_RELEASE_TESTS
-  variables:
-    PUPPET_VERSION: '4.10.7'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[install_from_rpm,el6_server]
+    - 'bundle exec rake spec_clean'
+    - 'bundle exec rake beaker:suites[install_from_rpm,el6_server]'
   retry: 1
 
-rpm_el7:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+rpm_el7-puppet5:
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_RELEASE_TESTS
-  variables:
-    PUPPET_VERSION: '4.10.7'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[install_from_rpm,el7_server]
+    - 'bundle exec rake spec_clean'
+    - 'bundle exec rake beaker:suites[install_from_rpm,el7_server]'
   retry: 1
 
-forge_install_el6:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+forge_install_el6-puppet5:
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_RELEASE_TESTS
-  variables:
-    PUPPET_VERSION: '4.10.7'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[install_from_core_module,el6_server]
+    - 'bundle exec rake spec_clean'
+    - 'bundle exec rake beaker:suites[install_from_core_module,el6_server]'
   retry: 1
 
-forge_install_el7:
-  stage: integration
-  tags:
-    - beaker
-  <<: *cache_bundler
-  <<: *setup_bundler_env
+forge_install_el7-puppet5-puppet5:
+  <<: *integration_test_puppet_5
   <<: *only_with_SIMP_RELEASE_TESTS
-  variables:
-    PUPPET_VERSION: '4.10.7'
   script:
-    - bundle exec rake spec_clean
-    - bundle exec rake beaker:suites[install_from_core_module,el7_server]
+    - 'bundle exec rake spec_clean'
+    - 'bundle exec rake beaker:suites[install_from_core_module,el7_server]'
   retry: 1
