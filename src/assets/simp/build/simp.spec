@@ -1,7 +1,7 @@
-Summary: SIMP Full Install
+Summary: SIMP Server Full Install
 Name: simp
-Version: 6.5.0
-Release: 1%{?dist}%{?snapshot_release}
+Version: 6.6.0
+Release: Alpha1%{?dist}%{?snapshot_release}
 License: Apache License, Version 2.0
 Group: Applications/System
 
@@ -211,41 +211,50 @@ chmod u=rwX,g=rX,o=rX -R %{buildroot}%{_sysconfdir}/simp
 
 %post
 # Post installation stuff
-export PATH=/opt/puppetlabs/bin:/opt/puppetlabs/puppet/bin:$PATH
+export PATH="/opt/puppetlabs/bin:/opt/puppetlabs/puppet/bin:$PATH"
 
-puppet_confdir=`puppet config print confdir`
+puppet_confdir="$(puppet config print confdir)"
 
 if [ -f "${puppet_confdir}/autosign.conf" ]; then
-  chmod 644 "${puppet_confdir}/autosign.conf"
+  chmod 0644 "${puppet_confdir}/autosign.conf"
 fi
 
 if [ -x '%{_usr}/local/sbin/puppetserver_clear_environment_cache' ]; then
   %{_usr}/local/sbin/puppetserver_clear_environment_cache
 fi
 
-puppet resource service puppetserver | grep -q running
-if [ $? -eq 0 ]; then
+if puppet resource service puppetserver | grep -q running; then
   puppetserver reload
 fi
 
-rpm_link_target="%{_var}/www/yum/`facter operatingsystem`/`facter operatingsystemmajrelease`"
-rpm_link="%{_var}/www/yum/`facter operatingsystem`/`facter operatingsystemrelease`"
-rpm_dir="$rpm_link/`facter hardwaremodel`/Updates"
 
-umask 022;
-if [ ! -d $rpm_dir ]; then
-  mkdir -p $rpm_dir;
-  cd $rpm_dir;
-
-  createrepo .;
-
-  ln -sf $rpm_link $rpm_link_target;
-fi
+### /var/www/yum/CentOS/8
+### rpm_link_target="%{_var}/www/yum/`facter operatingsystem`/`facter operatingsystemmajrelease`"
+#
+### /var/www/yum/CentOS/8.3.2011/
+### rpm_link="%{_var}/www/yum/`facter operatingsystem`/`facter operatingsystemrelease`"
+#
+###  /var/www/yum/CentOS/8.3.2011/x86_64/Update
+### rpm_dir="$rpm_link/`facter hardwaremodel`/Updates"
+###
+### umask 022;
+### if [ ! -d $rpm_dir ]; then
+###   mkdir -p $rpm_dir;
+###   cd $rpm_dir;
+###
+###   createrepo .;
+###
+###   ln -sf $rpm_link $rpm_link_target;
+### fi
 
 %postun
 # Post uninstall stuff
 
 %changelog
+* Fri May 28 2021  Chris Tessmer <chris.tessmer@onyxpoint.com> - 6.6.0-Alpha1
+- Initial 6.6.0-Alpha1 prep
+- Remove `createrepo` in simp RPM %post scriptlet
+
 * Thu Nov 12 2020 Jeanne Greulich <jeanne.greulich@onyxpoint.com> - 6.5.0-1
 - Add the following modules back in to 6.5.0 as they have been updated:
   - pupmod-simp-simp_gitlab
