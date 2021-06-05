@@ -1,0 +1,15 @@
+dnf -v -d9 repoclosure -c '/tmp/simp20210605-160061-1a3zsm6repoclosure/yum.conf' --installroot '/tmp/simp20210605-160061-1a3zsm6repoclosure'  \
+  --repofrompath 'SIMP.staged,file:///home/build_user/simp-core/build/distributions/CentOS/8/x86_64/SIMP_ISO_STAGING/CentOS8.3.2011-x86_64/SIMP' \
+  --repoid 'SIMP.staged'  \
+  --repofrompath 'appstream.staged,file:///home/build_user/simp-core/build/distributions/CentOS/8/x86_64/SIMP_ISO_STAGING/CentOS8.3.2011-x86_64/appstream' \
+  --repoid 'appstream.staged'  \
+  --repofrompath 'baseos.staged,file:///home/build_user/simp-core/build/distributions/CentOS/8/x86_64/SIMP_ISO_STAGING/CentOS8.3.2011-x86_64/baseos' \
+  --repoid 'baseos.staged'  \
+  --repofrompath 'epel.staged,file:///home/build_user/simp-core/build/distributions/CentOS/8/x86_64/SIMP_ISO_STAGING/CentOS8.3.2011-x86_64/epel' \
+  --repoid 'epel.staged'  \
+  --repofrompath 'epel-modular.staged,file:///home/build_user/simp-core/build/distributions/CentOS/8/x86_64/SIMP_ISO_STAGING/CentOS8.3.2011-x86_64/epel-modular' \
+  --repoid 'epel-modular.staged'  \
+  --repofrompath 'extras.staged,file:///home/build_user/simp-core/build/distributions/CentOS/8/x86_64/SIMP_ISO_STAGING/CentOS8.3.2011-x86_64/extras' \
+  --repoid 'extras.staged'  \
+  --repofrompath 'puppet.staged,file:///home/build_user/simp-core/build/distributions/CentOS/8/x86_64/SIMP_ISO_STAGING/CentOS8.3.2011-x86_64/puppet' \
+  --repoid 'puppet.staged'
