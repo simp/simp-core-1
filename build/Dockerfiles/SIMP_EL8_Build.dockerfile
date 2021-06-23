@@ -5,8 +5,8 @@
 #
 # If you want to save your container for future use, you use use the `docker
 # commit` command
-#   * docker commit <running container ID> el7_build
-#   * docker run -it el7_build
+#   * docker commit <running container ID> el8_build
+#   * docker run -it el8_build
 FROM centos:8
 ENV container docker
 
