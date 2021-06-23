@@ -2,7 +2,7 @@
 set -eu -o pipefail
 
 SIMP_BUILD_distro=CentOS,8.3,x86_64
-METHOD=pinned
+PUPPETFILE_METHOD=pinned
 DISTRO_BUILD_DIR="$PWD/build/distributions/CentOS/8/x86_64/"
 PATH_TO_ISO=/pulp/ISOs/CentOS-8.3.2011-x86_64-dvd1.iso
 ISO_UNPACK_TARGET_BASE="$DISTRO_BUILD_DIR/SIMP_ISO_STAGING"
@@ -21,11 +21,11 @@ SIMP_TARBALL=build/distributions/CentOS/8/x86_64/DVD_Overlay/SIMP-DVD-CentOS-6.6
 LOCAL_REPOS_BASE_DIR=/pulp/_download_path/build-6-6-0-centos-8-x86-64-test-advrpm-copy-resolution-fails
 
 
-[[ "${SKIP_CLEAN:-yes}" == yes ]]   || bundle exec rake deps:clean[$METHOD]
+[[ "${SKIP_CLEAN:-yes}" == yes ]]   || bundle exec rake deps:clean[$PUPPETFILE_METHOD]
 [[ "${SKIP_CLEAN:-yes}" == yes ]]   || bundle exec rake clean
 [[ "${SKIP_CLEAN:-yes}" == yes ]]   || bundle exec rake clobber
 
-[[ "${SKIP_DEPS:-no}" == yes ]]   || bundle exec rake deps:checkout[$METHOD]
+[[ "${SKIP_DEPS:-no}" == yes ]]   || bundle exec rake deps:checkout[$PUPPETFILE_METHOD]
 
 # Build RPMs
 [[ "${SKIP_TAR:-no}" == yes ]]    || bundle exec rake tar:build[$GPGKEY_NAME,$BUILD_DOCS]
@@ -35,7 +35,8 @@ LOCAL_REPOS_BASE_DIR=/pulp/_download_path/build-6-6-0-centos-8-x86-64-test-advrp
 #
 #  - [x] SIMP-XXXX  Remove all repodirs from all $ISO_UNPACK_TARGET_BASE/*/
 #  - [ ] SIMP-XXXX  Copy over all mirrored pulp repodirs into $ISO_UNPACK_TARGET_DIR/
-[[ "${SKIP_UNPACK:-no}" == yes ]] || bundle exec rake unpack[${PATH_TO_ISO},${ISO_UNPACK_MERGE},${ISO_UNPACK_TARGET_BASE},$ISOINFO,$ISO_VERSION]
+[[ "${SKIP_UNPACK:-no}" == yes ]] || bundle exec rake iso:unpack:clean[${PATH_TO_ISO},${ISO_UNPACK_TARGET_BASE},$ISO_VERSION]
+[[ "${SKIP_UNPACK:-no}" == yes ]] || bundle exec rake iso:unpack[${PATH_TO_ISO},${ISO_UNPACK_MERGE},${ISO_UNPACK_TARGET_BASE},$ISOINFO,$ISO_VERSION]
 
 
 [[ "${SKIP_STAGE:-no}" == yes ]] || bundle exec rake iso:stage:tarball[$SIMP_TARBALL,$ISO_UNPACK_TARGET_DIR]
@@ -59,6 +60,18 @@ LOCAL_REPOS_BASE_DIR=/pulp/_download_path/build-6-6-0-centos-8-x86-64-test-advrp
 #   - [ ] Place all GPG keys in /GPGPKEYS on ISO
 #   - [ ] TODO: Jira ticket to decide how to handle upgrades
 #   - [ ] Ensure .treeinfo has correct variants
+
+#
+# From dnf options man page
+#
+#   On a modular system you may also want to use the
+#  `--setopt=module_platform_id=<module_platform_name:stream>` command-line
+#   option when creating the installroot, otherwise the `module_platform_id`
+#   value will be taken from the `/etc/os-release` file within the installroot
+#   (and thus it will be empty at the time of creation, the modular dependency
+#   could be unsatisfied and modules content could be excluded).
+#
+#
 
 
 
