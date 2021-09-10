@@ -10,13 +10,14 @@
 #
 # Usage: Run `vagrant up`
 #
-# Once the systems have completed:
-#   * vagrant ssh simp_server
-#   * sudo su - root
-#   * reboot
-#
 # The password for the 'vagrant' user is 'vagrant' and will be needed to login
 # to the 'simp_client' system when you use 'vagrant ssh simp_client'
+#
+# Environment Variables:
+#   * BLEEDING_EDGE=true => Pull in the Puppetfile.branches after `simp config`
+#
+ENV['VAGRANT_NO_PARALLEL'] = 'yes'
+
 Vagrant.configure('2') do |c|
   c.vm.define 'simp_server' do |v|
     v.vm.hostname = 'puppet.test.simp'
@@ -29,21 +30,15 @@ Vagrant.configure('2') do |c|
       vb.customize ['modifyvm', :id, '--memory', '6144', '--cpus', '2']
     end
 
+    v.vm.provider :libvirt do |lv|
+      lv.cpus = 2
+      lv.memory = 6144
+    end
+
     v.vm.synced_folder '.', '/vagrant', disabled: true
 
-    # Enable the SIMP Repos from the build module
-    v.vm.provision 'file',
-      source: 'build/distributions/CentOS/7/x86_64/yum_data/repos/simp.repo',
-      destination: '/tmp/simp.repo'
-
     v.vm.provision 'shell',
-      inline: 'mv /tmp/simp.repo /etc/yum.repos.d'
-
-    v.vm.provision 'shell',
-      inline: 'chown root:root /etc/yum.repos.d/simp.repo'
-
-    v.vm.provision 'shell',
-      inline: 'chmod ugo+rX /etc/yum.repos.d/simp.repo'
+      inline: 'yum install -y https://download.simp-project.com/simp-release-community.rpm'
 
     # Install the puppet server
     v.vm.provision 'shell',
@@ -72,7 +67,10 @@ Vagrant.configure('2') do |c|
         'vagrant_su' => {
           'user_list' => ['vagrant'],
           'cmnd'      => ['ALL'],
-          'passwd'    => false
+          'passwd'    => false,
+          'options'   => {
+            'role' => 'unconfined_r'
+          }
         }
       },
       'pam::access::users' => {
@@ -101,7 +99,7 @@ Vagrant.configure('2') do |c|
     # Set up a STIG-mode client
     stig_mode_hiera = {
       # Enforce in STIG Mode
-      'compliance_markup::enforcement' => 'disa_stig',
+      'compliance_markup::enforcement' => ['disa_stig'],
       # Make sure the 'vagrant' user can get to root via sudo
       'selinux::login_resources' => {
         'vagrant' => {
@@ -115,7 +113,6 @@ Vagrant.configure('2') do |c|
     stig_yaml.puts(stig_mode_hiera.to_yaml)
     stig_yaml.close
 
-
     if stig_yaml && File.exist?(stig_yaml.path)
       at_exit{stig_yaml.unlink}
 
@@ -128,16 +125,53 @@ Vagrant.configure('2') do |c|
         inline: '\mv /tmp/stig.test.simp.yaml /usr/share/simp/environment-skeleton/puppet/data/hosts'
     end
 
+    # Hook up the compliance enforcement backend
+    hiera_mod = <<~HIERA_MOD
+    #!/opt/puppetlabs/puppet/bin/ruby
+
+    require 'yaml'
+
+    conf = '/usr/share/simp/environment-skeleton/puppet/hiera.yaml'
+
+    hiera_yaml = YAML.load_file(conf)
+
+    hiera_yaml['hierarchy'].insert(
+      hiera_yaml['hierarchy'].index{|x| x['paths'].include?('default.yaml')},
+      {'name' => 'SIMP Compliance Engine', 'lookup_key' => 'compliance_markup::enforcement'}
+    )
+
+    File.open(conf, 'w'){|f| f.puts(hiera_yaml.to_yaml)}
+    HIERA_MOD
+
+    hiera_modfile = Tempfile.new('hiera.yaml')
+    hiera_modfile.puts(hiera_mod)
+    hiera_modfile.close
+
+    if hiera_modfile && File.exist?(hiera_modfile.path)
+      at_exit{hiera_modfile.unlink}
+
+      v.vm.provision 'file',
+        source: hiera_modfile.path,
+        destination: '/tmp/hiera_mod.rb'
+
+      # Update the node-specific configuration for the stig node
+      v.vm.provision 'shell',
+        inline: '\chmod 755 /tmp/hiera_mod.rb; /tmp/hiera_mod.rb'
+
+      v.vm.provision 'shell',
+        inline: '\rm /tmp/hiera_mod.rb'
+    end
+
     # Run simp config
     #
     # This moves the default environment data into place
     v.vm.provision 'shell',
       keep_color: true,
-      inline: 'simp config --force-config -f -D -s cli::network::interface=eth1 cli::is_simp_ldap_server=false cli::network::dhcp=static cli::set_grub_password=false svckill::mode=enforcing'
+      inline: 'simp config --force-config -f -D -s cli::network::interface=eth1 cli::is_simp_ldap_server=false cli::network::set_up_nic=false cli::set_grub_password=false svckill::mode=enforcing cli::use_internet_simp_yum_repos=false cli::local_priv_user=vagrant'
 
     # Unlock bootstrap
     v.vm.provision 'shell',
-      inline: 'rm /root/.simp/simp_bootstrap_start_lock'
+      inline: 'rm -f /root/.simp/simp_bootstrap_start_lock'
 
     # Set up for the client registration
     #
@@ -194,22 +228,46 @@ Vagrant.configure('2') do |c|
     v.vm.provision 'shell',
       inline: %{echo "simp::server::kickstart::manage_tftpboot: false" >> /etc/puppetlabs/code/environments/production/data/hosts/puppet.test.simp.yaml}
 
+    bootstrap_cmd = [
+      'simp bootstrap',
+      'cp -a ~vagrant/.ssh/authorized_keys /etc/ssh/local_keys/vagrant'
+    ]
+
+    if ENV['BLEEDING_EDGE'] == 'true'
+      v.vm.provision 'file',
+        source: './Puppetfile.branches',
+        destination: '/home/vagrant/Puppetfile.branches'
+
+      bootstrap_cmd << 'mv /home/vagrant/Puppetfile.branches /etc/puppetlabs/code/environments/production/Puppetfile.simp'
+      bootstrap_cmd << 'chown root:puppet /etc/puppetlabs/code/environments/production/Puppetfile.simp'
+      bootstrap_cmd << 'chmod 0640 /etc/puppetlabs/code/environments/production/Puppetfile.simp'
+      bootstrap_cmd << [
+        %{( umask 0027 && sg puppet -c},
+        %{'/usr/share/simp/bin/r10k puppetfile install},
+        %{--puppetfile /etc/puppetlabs/code/environments/production/Puppetfile},
+        %{--moduledir /etc/puppetlabs/code/environments/production/modules')}
+      ].join(' ')
+    end
+
+    bootstrap_cmd << 'systemd-run --on-active=5 /bin/systemctl --force reboot'
+
     # Run bootstrap and ensure that Vagrant can get back into the host using
     # SSH keys
     #
     # This needs to be the LAST command run
-    v.vm.provision 'shell',
-      keep_color: true,
-      inline: 'simp bootstrap && cp -a ~vagrant/.ssh/authorized_keys /etc/ssh/local_keys/vagrant'
+    v.vm.provision 'shell' do |s|
+      s.keep_color = true
+      s.inline = bootstrap_cmd.join(' && ')
+      s.reset = true
+    end
 
     v.vm.post_up_message = <<-HEREDOC
     Your SIMP server is ready!
 
     If this is your first boot:
 
-    1. Run 'vagrant ssh simp_server' then 'sudo reboot' to restart the server
-    2. Run 'vagrant ssh simp_server' to login to the system
-    3. Run 'sudo su - root' to elevate privileges
+    1. Run 'vagrant ssh simp_server' to login to the system
+    2. Run 'sudo su - root' to elevate privileges
 
     * Your server can be accessed via 'vagrant ssh simp_server'
     * Your client can be accessed via 'vagrant ssh simp_client'
@@ -229,51 +287,9 @@ Vagrant.configure('2') do |c|
       vb.customize ['modifyvm', :id, '--memory', '512', '--cpus', '1']
     end
 
-    v.vm.synced_folder '.', '/vagrant', disabled: true
-
-    # Enable the SIMP Repos from the build module
-    v.vm.provision 'file',
-      source: 'build/distributions/CentOS/7/x86_64/yum_data/repos/simp.repo',
-      destination: '/tmp/simp.repo'
-
-    v.vm.provision 'shell',
-      inline: 'mv /tmp/simp.repo /etc/yum.repos.d'
-
-    v.vm.provision 'shell',
-      inline: 'chown root:root /etc/yum.repos.d/simp.repo'
-
-    v.vm.provision 'shell',
-      inline: 'chmod ugo+rX /etc/yum.repos.d/simp.repo'
-
-    # Install the puppet package so that the provisioner script will work
-    v.vm.provision 'shell',
-      inline: 'yum -y install puppet'
-
-    # The server might be churning, so give it a bit
-    v.vm.provision 'shell',
-      inline: 'sleep 120'
-
-    # DNS is not set up, so we need to make the client aware of the server
-    v.vm.provision 'shell',
-      inline: 'echo "10.255.239.55 puppet.test.simp puppet" >> /etc/hosts'
-
-    # Hook into the puppet server
-    v.vm.provision 'shell',
-      inline: 'curl -k -O https://puppet.test.simp/ks/bootstrap_simp_client'
-
-    v.vm.provision 'shell',
-      inline: '/opt/puppetlabs/puppet/bin/ruby bootstrap_simp_client --debug --puppet-wait-for-cert 0 --debug --print-stats --puppet_server=puppet.test.simp --puppet_ca=puppet.test.simp'
-  end
-
-  c.vm.define 'simp_stig', autostart: false do |v|
-    v.vm.hostname = 'stig.test.simp'
-    v.vm.box = 'centos/7'
-    v.vm.box_check_update = 'true'
-
-    v.vm.network 'private_network', ip: '10.255.239.57'
-
-    v.vm.provider :virtualbox do |vb|
-      vb.customize ['modifyvm', :id, '--memory', '512', '--cpus', '1']
+    v.vm.provider :libvirt do |lv|
+      lv.cpus = 1
+      lv.memory = 512
     end
 
     v.vm.synced_folder '.', '/vagrant', disabled: true
@@ -308,16 +324,84 @@ Vagrant.configure('2') do |c|
     v.vm.provision 'shell',
       inline: 'curl -k -O https://puppet.test.simp/ks/bootstrap_simp_client'
 
+    v.vm.provision 'shell' do |s|
+      cmd = [
+        '/opt/puppetlabs/puppet/bin/ruby bootstrap_simp_client --debug --puppet-wait-for-cert 0 --debug --print-stats --puppet_server=puppet.test.simp --puppet_ca=puppet.test.simp',
+        'cp -a ~vagrant/.ssh/authorized_keys /etc/ssh/local_keys/vagrant',
+        'systemd-run --on-active=5 /bin/systemctl --force reboot'
+      ]
+
+      s.keep_color = true
+      s.inline = cmd.join(' && ')
+      s.reset = true
+    end
+  end
+
+  c.vm.define 'simp_stig', autostart: false do |v|
+    v.vm.hostname = 'stig.test.simp'
+    v.vm.box = 'centos/7'
+    v.vm.box_check_update = 'true'
+
+    v.vm.network 'private_network', ip: '10.255.239.57'
+
+    v.vm.provider :virtualbox do |vb|
+      vb.customize ['modifyvm', :id, '--memory', '512', '--cpus', '1']
+    end
+
+    v.vm.provider :libvirt do |lv|
+      lv.cpus = 1
+      lv.memory = 512
+    end
+
+    v.vm.synced_folder '.', '/vagrant', disabled: true
+
+    # Enable the SIMP Repos from the build module
+    v.vm.provision 'file',
+      source: 'build/distributions/CentOS/7/x86_64/yum_data/repos/simp.repo',
+      destination: '/tmp/simp.repo'
+
     v.vm.provision 'shell',
-      inline: '/opt/puppetlabs/puppet/bin/ruby bootstrap_simp_client --debug --puppet_server=puppet.test.simp --puppet_ca=puppet.test.simp'
+      inline: 'mv /tmp/simp.repo /etc/yum.repos.d'
+
+    v.vm.provision 'shell',
+      inline: 'chown root:root /etc/yum.repos.d/simp.repo'
+
+    v.vm.provision 'shell',
+      inline: 'chmod ugo+rX /etc/yum.repos.d/simp.repo'
+
+    # Install the puppet package so that the provisioner script will work
+    v.vm.provision 'shell',
+      inline: 'yum -y install puppet'
+
+    # The server might be churning, so give it a bit
+    v.vm.provision 'shell',
+      inline: 'sleep 120'
+
+    # DNS is not set up, so we need to make the client aware of the server
+    v.vm.provision 'shell',
+      inline: 'echo "10.255.239.55 puppet.test.simp puppet" >> /etc/hosts'
+
+    # Hook into the puppet server
+    v.vm.provision 'shell',
+      inline: 'curl -k -O https://puppet.test.simp/ks/bootstrap_simp_client'
+
+    v.vm.provision 'shell' do |s|
+      cmd = [
+        '/opt/puppetlabs/puppet/bin/ruby bootstrap_simp_client --debug --puppet-wait-for-cert 0 --debug --print-stats --puppet_server=puppet.test.simp --puppet_ca=puppet.test.simp',
+        'cp -a ~vagrant/.ssh/authorized_keys /etc/ssh/local_keys/vagrant',
+        'systemd-run --on-active=5 /bin/systemctl --force reboot'
+      ]
+
+      s.keep_color = true
+      s.inline = cmd.join(' && ')
+      s.reset = true
+    end
 
     v.vm.post_up_message = <<-HEREDOC
     Your  STIG-mode SIMP client is ready!
 
     * This sytem can be accessed via 'vagrant ssh simp_stig'
     * The vagrant user password is 'vagrant'.
-
-    IMPORTANT: To get to a root shell, use 'sudo -i -r unconfined_r'
     HEREDOC
   end
 end
