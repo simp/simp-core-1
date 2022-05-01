@@ -40,8 +40,7 @@
 ---
 
 epel:
-  url: https://download.fedoraproject.org/pub/epel/8/Everything/x86_64/
-  ###url: https://sjc.edge.kernel.org/fedora-buffet/epel/8/Everything/x86_64/
+  url: https://dl.fedoraproject.org/pub/epel/8/Everything/x86_64/
   rpms:
   - name: htop        # no deps
   - name: vim-ansible # depends on appstream: vim-filesystem
@@ -58,8 +57,8 @@ epel:
   - name: rubygem-highline
   - name: rubygem-net-ldap
   - name: incron
+  - name: pass
   - name: haveged
-  - name: dkms
   - name: dnf-plugin-ovl
   - name: clamav
   - name: clamav-update
@@ -67,6 +66,11 @@ epel:
   - name: pwgen
   - name: rkhunter
   - name: openssh-ldap-authkeys # AuthorizedKeysCommand script for LDAP
+
+epel-next:
+  url: https://dl.fedoraproject.org/pub/epel/next/8/Everything/x86_64/
+  rpms:
+  - name: dkms
 
 epel-modular:
   url: https://dl.fedoraproject.org/pub/epel/8/Modular/x86_64/
@@ -105,7 +109,7 @@ puppet:
     version: ['>= 7.6.0', '< 8.0.0']
 
 BaseOS:
-  url: http://vault.centos.org/centos/8/BaseOS/x86_64/os/
+  url: http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os/
   packagegroups:
   - id: core
   - id: base
@@ -117,11 +121,7 @@ BaseOS:
   - name: autofs
   - name: audispd-plugins
   - name: c-ares # provides libcares.so.2 for sssd-common
-  - name: centos-indexhtml
-  - name: centos-logos
-  - name: centos-logos-httpd
-  - name: centos-obsolete-packages
-  - name: centos-linux-release
+  - name: centos-stream-release
   - name: chrony
   - name: cronie
   - name: crontabs
@@ -251,7 +251,7 @@ BaseOS:
   - name: yum-utils
 
 AppStream:
-  url: http://vault.centos.org/centos/8/AppStream/x86_64/os/
+  url: http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os/
   modules:
     - stream: 389-ds:1.4
       # provides rpms:
@@ -279,7 +279,7 @@ AppStream:
     - stream: perl-IO-Socket-SSL:2.066
     # NOTE: Specific NSVCA to fix  https://github.com/simp/bolt-pulp3/issues/19
     # Should eventually revert to a less-specific NS
-    - stream: perl-libwww-perl:6.34:8030020201223164340:b967a9a2:x86_64
+    - stream: perl-libwww-perl:6.34:8040020211102170116:bf75fe78:x86_64
       # provides rpms:
       #   - python3-distro
       #   - python3-lib389
@@ -309,6 +309,9 @@ AppStream:
   - name: bind
   - name: bind-utils
   - name: centos-backgrounds
+  - name: centos-indexhtml
+  - name: centos-logos
+  - name: centos-logos-httpd
   - name: centos-logos-ipa
   - name: createrepo_c
   - name: genisoimage
@@ -333,9 +336,9 @@ AppStream:
   - name: openscap-scanner
   - name: openscap-utils
   - name: openssh-askpass
-  - name: pesign
   - name: perl-Mozilla-LDAP
   - name: perl-NetAddr-IP
+  - name: pesign
   - name: python3-argcomplete # not part of a module
   - name: redhat-lsb
   - name: redhat-lsb-core
@@ -357,8 +360,8 @@ AppStream:
   - name: rsyslog-pgsql
   - name: rsyslog-snmp
   - name: scap-security-guide
-  - name: sysstat
   - name: sysfsutils
+  - name: sysstat
   - name: tftp
   - name: tftp-server
   - name: tigervnc
@@ -414,7 +417,7 @@ extras:
   - name: epel-next-release
 
 PowerTools:
-  url: http://vault.centos.org/centos/8/PowerTools/x86_64/os/
+  url: http://mirror.centos.org/centos/8-stream/PowerTools/x86_64/os/
   rpms:
     - name: elinks
     - name: lua-filesystem
@@ -434,8 +437,6 @@ simp:
   url: https://download.simp-project.com/simp/yum/unstable/simp6/el/8Server/x86_64/simp/
   # url: https://download.simp-project.com/SIMP/yum/releases/latest/el/8Server/x86_64/simp/
   rpms:
-   - name: simp
-   - name: simp-doc
    - name: pupmod-onyxpoint-gpasswd
    - name: pupmod-puppetlabs-apache
    - name: pupmod-puppetlabs-motd
@@ -494,13 +495,13 @@ simp:
    - name: pupmod-simp-simp_gitlab
    - name: pupmod-simp-simp_grub
    - name: pupmod-simp-simp_ipa
-   - name: pupmod-simp-simpkv
-   - name: pupmod-simp-simplib
    - name: pupmod-simp-simp_nfs
    - name: pupmod-simp-simp_openldap
    - name: pupmod-simp-simp_options
    - name: pupmod-simp-simp_rsyslog
    - name: pupmod-simp-simp_snmpd
+   - name: pupmod-simp-simpkv
+   - name: pupmod-simp-simplib
    - name: pupmod-simp-ssh
    - name: pupmod-simp-sssd
    - name: pupmod-simp-stunnel
@@ -511,8 +512,8 @@ simp:
    - name: pupmod-simp-tcpwrappers
    - name: pupmod-simp-tftpboot
    - name: pupmod-simp-tlog
-   - name: pupmod-simp-tpm2
    - name: pupmod-simp-tpm
+   - name: pupmod-simp-tpm2
    - name: pupmod-simp-tuned
    - name: pupmod-simp-upstart
    - name: pupmod-simp-useradd
@@ -524,7 +525,9 @@ simp:
    - name: rubygem-simp-cli
    - name: rubygem-simp-cli-doc
    - name: rubygem-simp-cli-highline
+   - name: simp
    - name: simp-adapter
+   - name: simp-doc
    - name: simp-environment-skeleton
    - name: simp-gpgkeys
    - name: simp-rsync
