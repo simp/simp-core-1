@@ -158,7 +158,6 @@ Requires: pupmod-puppet-gitlab >= 7.1.0
 Requires: pupmod-puppet-posix_acl >= 1.0.1
 Requires: pupmod-puppet-snmp >= 5.1.1
 Requires: pupmod-puppetlabs-java >= 7.0.2
-Requires: pupmod-puppetlabs-mysql >= 10.4.0
 Requires: pupmod-puppetlabs-ruby_task_helper >= 0.6.0
 Requires: pupmod-puppetlabs-translate >= 2.1.0
 Requires: pupmod-saz-locales >= 2.5.1
@@ -243,6 +242,10 @@ fi
 # Post uninstall stuff
 
 %changelog
+* May 11 2022 Chris Tessmer <chris.tessmer@onyxpoint.com> - 6.6.0-1
+- Removed:
+  - pupmod-puppetlabs-mysql
+
 * Thu Oct 07 2021 Trevor Vaughan <tvaughan@onyxpoint.com> - 6.6.0-1
 - Updated the list of provided components
   - Additions:
