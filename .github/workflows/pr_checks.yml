@@ -12,8 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: 'ls -l /'
-      - run: 'ls -l /__* /github'
-      - run: bundle exec rake check:syntax:yaml
+      - run: 'ls -l /__* /github/*'
+      - run: "runuser -l build_user -c 'bundle exec rake check:syntax:yaml'"
 
   rpm_checks:
     if: false
@@ -41,6 +41,7 @@ jobs:
         with:
           ruby-version: 2.7
           bundler-cache: true
+      - run: 'command -v rpm || if command -v apt-get; then apt-get update; apt-get install -y rpm; fi ||:'
       - run: |
           bundle exec rake metadata_lint
           bundle exec pdk build --force --target-dir=dist
