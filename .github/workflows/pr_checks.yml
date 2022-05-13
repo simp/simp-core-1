@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: 'ls -l /'
-      - run: 'ls -lart /__w/* /github/*'
+      - run: 'ls -lart /__w/*/* /github/*'
       - run: "runuser -l build_user -c 'bundle exec rake check:syntax:yaml'"
 
   rpm_checks:
