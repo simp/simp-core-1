@@ -11,7 +11,7 @@ jobs:
     container: docker.io/simpproject/simp_build_centos8
     steps:
       - uses: actions/checkout@v2
-      - run: ls -l /github/workspace || :
+      - run: 'ls -l /github/workspace || :'
       - run: bundle exec rake check:syntax:yaml
 
   rpm_checks:
