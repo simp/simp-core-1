@@ -8,16 +8,16 @@ jobs:
   validate-yaml:
     name: 'Validate YAML Syntax'
     runs-on: ubuntu-20.04
+    container: docker.io/simpproject/simp_build_centos8
     steps:
       - uses: actions/checkout@v2
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 2.7
-          bundler-cache: true
+      - run: ls -l /github/workspace || :
       - run: bundle exec rake check:syntax:yaml
 
   rpm_checks:
+    name: 'RPM checks'
     runs-on: ubuntu-20.04
+    container: docker.io/simpproject/simp_build_centos8
     steps:
       - uses: actions/checkout@v2
       - uses: ruby/setup-ruby@v1
@@ -29,7 +29,8 @@ jobs:
          SIMP_RPM_dist=.el7 bundle exec rake check:dot_underscore
          SIMP_RPM_dist=.el7 bundle exec rake check:test_file
 
-  metadata_lint:
+  module_checks:
+    name: Puppet module checks
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -37,9 +38,12 @@ jobs:
         with:
           ruby-version: 2.7
           bundler-cache: true
-      - run: bundle exec rake
+      - run: |
+          bundle exec rake metadata_lint
+          bundle exec pdk build --force --target-dir=dist
 
   pkglist_lint:
+    name '
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -49,13 +53,3 @@ jobs:
           bundler-cache: true
       - run: bundle exec rake check:pkglist_lint
 
-
-  module_checks:
-    runs-on: ubuntu-20.04
-    steps:
-      - uses: actions/checkout@v2
-      - uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: 2.7
-          bundler-cache: true
-      - run: bundle exec rake metadata_lint
