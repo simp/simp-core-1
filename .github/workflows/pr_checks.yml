@@ -43,7 +43,7 @@ jobs:
           bundle exec pdk build --force --target-dir=dist
 
   pkglist_lint:
-    name '
+    if: false
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
