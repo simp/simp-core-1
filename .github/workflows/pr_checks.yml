@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: 'ls -l /'
-      - run: 'ls -l /__w'
+      - run: 'ls -l /__* /github'
       - run: bundle exec rake check:syntax:yaml
 
   rpm_checks:
