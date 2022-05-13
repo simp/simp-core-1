@@ -10,24 +10,21 @@ jobs:
   validate-yaml:
     name: 'Validate YAML Syntax'
     runs-on: ubuntu-20.04
-    container: docker.io/simpproject/simp_build_centos8
     steps:
       - uses: actions/checkout@v2
-      - run: 'ls -l /'
-      - run: 'ls -lart /__w/*/* /github/*'
-      - run: "runuser -l build_user -c 'bundle exec rake check:syntax:yaml'"
+      - run: 'command -v rpm || if command -v apt-get; then apt-get update; apt-get install -y rpm; fi ||:'
+      - run: bundle exec rake check:syntax:yaml
 
   rpm_checks:
-    if: false
-    name: 'RPM checks'
+    name: RPM checks
     runs-on: ubuntu-20.04
-    container: docker.io/simpproject/simp_build_centos8
     steps:
       - uses: actions/checkout@v2
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: 2.7
           bundler-cache: true
+      - run: 'command -v rpm || if command -v apt-get; then apt-get update; apt-get install -y rpm; fi ||:'
       - run: |
          command -v rpm || if command -v apt-get; then apt-get update; apt-get install -y rpm; fi ||:
          SIMP_RPM_dist=.el7 bundle exec rake check:dot_underscore
@@ -49,6 +46,7 @@ jobs:
 
   pkglist_lint:
     if: false
+    name: This check is silly and I would be annoyed if it slowed my PR
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
@@ -56,5 +54,6 @@ jobs:
         with:
           ruby-version: 2.7
           bundler-cache: true
+      - run: 'command -v rpm || if command -v apt-get; then apt-get update; apt-get install -y rpm; fi ||:'
       - run: bundle exec rake check:pkglist_lint
 
