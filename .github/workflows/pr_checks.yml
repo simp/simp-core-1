@@ -3,6 +3,8 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+env:
+  SIMP_RPM_dist: .el7
 
 jobs:
   validate-yaml:
