@@ -122,7 +122,7 @@ mod 'puppetlabs-puppetdb',
   :tag => '7.10.0'
 
 mod 'puppetlabs-puppet_authorization',
-  :git => 'https://github.com/simp/puppetlabs-puppet_authorization.git',
+  :git => 'https://github.com/simp/pupmod-puppetlabs-puppet_authorization',
   :tag => '0.5.1'
 
 mod 'puppetlabs-ruby_task_helper',
