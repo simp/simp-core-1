@@ -481,7 +481,7 @@ mod 'treydock-kdump',
   :tag => 'v1.0.0'
 
 mod 'trlinkin-nsswitch',
-  :git => 'https://github.com/simp/puppet-nsswitch',
+  :git => 'https://github.com/simp/pupmod-trlinkin-nsswitch',
   :tag => '2.3.0'
 
 mod 'voxpupuli-chrony',
