@@ -93,4 +93,51 @@ namespace :deps do
     changes = gather_changes(base_dir, opts)
     log_changes(changes, args[:prev_tag])
   end
+
+  desc <<~DESC
+    Compare dep verstions between Puppetfile and RPM simp.spec
+  DESC
+  task :compare_puppetfile_and_rpm_spec, [:puppetfile_method] do |t,args|
+    args.with_defaults(:puppetfile_method => 'pinned')
+    base_dir = File.dirname(File.dirname(__FILE__))
+    puppetfile = "#{base_dir}/Puppetfile." + args[:puppetfile_method]
+    modules = load_modules(puppetfile)
+    target_module = modules.select do |id, mod|
+      #require 'pry'; binding.pry if mod[:desired_ref] =~ /^simp-/
+      semver = mod[:version].sub( /^(simp-|v)?([0-9]+\.[0-9]+\.[0-9]+)(-(rc|alpha|beta|pre|post)?([0-9]+)?)?$/, '\2' )
+      puts "\n== #{mod[:id]} => #{mod[:version]} = #{semver}"
+
+      if mod[:module_dir] =~ /\/modules$/
+        grep_name = "-#{mod[:id]}"
+        grep_name = "pupmod-simp-#{mod[:id]}" if mod[:id] =~ /^simp/
+        grep_prefix = grep_name =~ /^pupmod-/ ? '' : 'pupmod-.*'
+        cmd = "grep -- ': #{grep_prefix}#{grep_name}\\>' src/assets/simp/build/simp.spec"
+        cmd2 = "grep -- ':.*#{grep_name} .. #{semver}' src/assets/simp/build/simp.spec"
+      else
+        grep_name = "#{mod[:id]}"
+        grep_name.gsub!('_','-') if mod[:id] =~ /^(rubygem|simp)/
+        grep_name = 'simp-rsync-skeleton' if mod[:id] == 'rsync_data'
+        grep_name = 'simp-environment-skeleton' if mod[:id] == 'environment'
+        grep_name = 'simp-vendored-r10k' if mod[:id] == 'vendored_r10k'
+        grep_name = "simp-#{mod[:id]}" if ['adapter','gpgkeys', 'utils'].include?( mod[:id] )
+        #grep_name.sub!(/$/, "[^-]")
+        cmd = "grep -- ':.* #{grep_name} ' src/assets/simp/build/simp.spec"
+        cmd2 = "grep -- ':.* #{grep_name} .. #{semver}' src/assets/simp/build/simp.spec"
+      end
+      puts cmd
+      matches = %x[#{cmd}]
+      puts matches
+
+      puts cmd2
+      semver_matches = %x[#{cmd2}]
+      puts semver_matches
+      if matches != semver_matches
+  require 'pry'; binding.pry
+      end
+      if matches.empty? || semver_matches.empty?
+        warn "empty matches!"
+    require 'pry'; binding.pry
+      end
+    end
+  end
 end

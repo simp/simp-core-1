@@ -62,7 +62,7 @@ mod 'simp-vendored_r10k',
 moduledir 'src/puppet/modules'
 
 mod 'puppet-kmod',
-  :git => 'https://github.com/simp/pupmod-voxpupuli-kmod.git',
+  :git => 'https://github.com/simp/pupmod-voxpupuli-kmod',
   :tag => 'v3.2.0'
 
 mod 'puppet-systemd',
@@ -126,7 +126,7 @@ mod 'puppetlabs-puppet_authorization',
   :tag => '0.5.1'
 
 mod 'puppetlabs-ruby_task_helper',
-  :git => 'https://github.com/simp/pupmod-puppetlabs-ruby_task_helper.git',
+  :git => 'https://github.com/simp/pupmod-puppetlabs-ruby_task_helper',
   :tag => '0.6.0'
 
 mod 'puppetlabs-stdlib',
@@ -497,7 +497,7 @@ mod 'voxpupuli-posix_acl',
   :tag => 'v1.0.1'
 
 mod 'voxpupuli-gitlab',
-  :git => 'https://github.com/simp/puppet-gitlab.git',
+  :git => 'https://github.com/simp/puppet-gitlab',
   :tag => 'v8.0.0'
 
 mod 'voxpupuli-snmp',
