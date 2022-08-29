@@ -501,11 +501,11 @@ mod 'voxpupuli-gitlab',
   :tag => 'v8.0.0'
 
 mod 'voxpupuli-snmp',
-  :git => 'https://github.com/simp/puppet-snmp',
+  :git => 'https://github.com/simp/pupmod-voxpupuli-snmp',
   :tag => 'v6.0.0'
 
 mod 'voxpupuli-yum',
-  :git => 'https://github.com/simp/voxpupuli-yum',
+  :git => 'https://github.com/simp/pupmod-voxpupuli-yum',
   :tag => 'v5.4.0'
 
 # vi:syntax=ruby
