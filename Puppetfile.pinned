@@ -142,7 +142,7 @@ mod 'saz-locales',
   :tag => 'v2.5.1'
 
 mod 'saz-timezone',
-  :git => 'https://github.com/simp/pupmod-simp-timezone',
+  :git => 'https://github.com/simp/pupmod-saz-timezone',
   :tag => 'v6.1.0'
 
 mod 'simp-acpid',
